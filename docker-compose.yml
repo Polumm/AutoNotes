@@ -6,13 +6,14 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - OLLAMA_API=http://localhost:11434/api/chat
+      - OLLAMA_API=http://host.docker.internal:11434/api/chat
       - LLM_MODEL=deepseek-r1:14b
       - WHISPER_MODEL_DIR=/app/models/whisper
     volumes:
       - .:/app
       - whisper-models:/app/models/whisper
     restart: unless-stopped
-
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 volumes:
   whisper-models:

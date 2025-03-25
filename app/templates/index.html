@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AutoNotes: Whisper + Ollama</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f8f9fa;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+
+    .drop-zone {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 2rem;
+      cursor: pointer;
+      background: #fff;
+      color: #555;
+      margin-bottom: 2rem;
+      width: 100%;
+      max-width: 800px;
+      text-align: center;
+    }
+
+    .drop-zone.dragover {
+      border-color: #007bff;
+      background: #e6f0ff;
+    }
+
+    #chatBox {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      width: 100%;
+      max-width: 800px;
+      background: #fff;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      min-height: 200px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+
+    .message {
+      margin: 0.5rem 0;
+      line-height: 1.5;
+    }
+
+    .user {
+      color: #333;
+    }
+
+    .ollama {
+      color: #007bff;
+    }
+
+    #inputArea {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    button {
+      align-self: flex-end;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>🎙️ AutoNotes</h1>
+  <p>Drop an audio file (MP4, MP3, WAV, ...) to transcribe + summarize with Whisper + Ollama</p>
+
+  <div class="drop-zone" id="dropZone">
+    Drop your audio file here or click to select
+    <input type="file" id="fileInput" style="display: none;" accept="audio/*">
+  </div>
+
+  <div id="chatBox"></div>
+
+  <div id="inputArea">
+    <h2>💬 Chat with Ollama</h2>
+    <textarea id="chatInput" placeholder="Ask to refine summary, translate, extract key points..." rows="3"></textarea>
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const chatBox = document.getElementById('chatBox');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) uploadFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) uploadFile(file);
+    });
+
+    async function uploadFile(file) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      addUserMessage("🎧 Uploaded audio. Transcribing and summarizing...");
+
+      const response = await fetch("/summarize", {
+        method: "POST",
+        body: formData,
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      addOllamaMessage(""); // placeholder
+      let current = chatBox.lastElementChild;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        current.textContent += decoder.decode(value, { stream: true });
+        scrollToBottom();
+      }
+
+      scrollToBottom();
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("chatInput");
+      const message = input.value.trim();
+      if (!message) return;
+
+      addUserMessage(message);
+      input.value = "";
+
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      addOllamaMessage("");
+      let current = chatBox.lastElementChild;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        current.textContent += decoder.decode(value, { stream: true });
+        scrollToBottom();
+      }
+
+      scrollToBottom();
+    }
+
+    function addUserMessage(msg) {
+      const div = document.createElement("div");
+      div.className = "message user";
+      div.textContent = "🧑‍💻: " + msg;
+      chatBox.appendChild(div);
+    }
+
+    function addOllamaMessage(msg) {
+      const div = document.createElement("div");
+      div.className = "message ollama";
+      div.textContent = "🤖: " + (msg || "");
+      chatBox.appendChild(div);
+    }
+
+    function scrollToBottom() {
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>

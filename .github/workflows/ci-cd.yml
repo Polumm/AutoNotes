@@ -1,0 +1,35 @@
+name: CI for AutoNotes App
+
+on:
+  push:
+    paths:
+      - 'AutoNotes/**'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  PAT: ${{ secrets.PAT }}
+  GHCR_USER: ${{ github.repository_owner }}
+
+jobs:
+  build-and-push-autonotes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.PAT }}" | docker login ghcr.io -u $GHCR_USER --password-stdin
+
+      - name: Build and Push AutoNotes Image
+        run: |
+          cd AutoNotes
+          REPO_NAME=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker buildx build --platform linux/amd64 -t ghcr.io/$REPO_NAME/autonotes:latest --push .

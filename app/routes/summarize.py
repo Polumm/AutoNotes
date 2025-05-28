@@ -24,8 +24,8 @@ def summarize_audio():
     transcript = result["text"]
     os.remove(temp_path)
 
-    prompt = f"Please summarize the following transcript:\n\n{transcript}"
-    messages = [{"role": "user", "content": prompt}]
+    summary_prompt = f"Please summarize the following transcript:\n\n{transcript}"
+    messages = [{"role": "user", "content": summary_prompt}]
     payload = {
         "model": current_app.config["LLM_MODEL"],
         "messages": messages,
@@ -33,8 +33,13 @@ def summarize_audio():
     }
 
     def generate_summary():
-        yield json.dumps({"transcript": transcript}, ensure_ascii=False) + "\n"
+        # Step 1: Send transcript first
+        yield json.dumps({"type": "transcript", "content": transcript}, ensure_ascii=False) + "\n"
 
+        # Step 2: Start summary stream
+        yield json.dumps({"type": "summary_start"}) + "\n"
+
+        summary_content = ""
         with requests.post(
             current_app.config["OLLAMA_API"], json=payload, stream=True
         ) as response:
@@ -43,12 +48,13 @@ def summarize_audio():
                     data = json.loads(line.decode("utf-8"))
                     content = data.get("message", {}).get("content")
                     if content:
-                        yield content
+                        summary_content += content
+                        yield content  # plain streamed text
 
-    # Save to history for further interaction
-    chat_history.clear()
-    chat_history.extend(messages)
+        # Save both transcript and summary to history
+        chat_history.clear()
+        chat_history.append({"role": "assistant", "content": transcript})
+        chat_history.append({"role": "user", "content": summary_prompt})
+        chat_history.append({"role": "assistant", "content": summary_content})
 
-    return Response(
-        stream_with_context(generate_summary()), mimetype="text/plain"
-    )
+    return Response(stream_with_context(generate_summary()), mimetype="text/plain")

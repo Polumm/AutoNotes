@@ -3,106 +3,265 @@
 <head>
   <meta charset="UTF-8" />
   <title>AutoNotes: Whisper + Ollama</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body {
-      font-family: sans-serif;
-      background: #f8f9fa;
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    * {
+      box-sizing: border-box;
     }
 
-    h1 {
-      margin-bottom: 0.5rem;
+    body, html {
+      margin: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f1f3f5;
+    }
+
+    .layout {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background: #f0f4f8;
+      padding: 1rem;
+      border-right: 1px solid #ccc;
+      transition: transform 0.3s ease;
+      transform: translateX(-250px); /* hidden by default */
+      position: fixed;
+      height: 100%;
+      z-index: 999;
+    }
+
+    /* When open, slide into view */
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      color: #1e40af;
+    }
+
+    .sidebar pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #e7effb;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    /* Main */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      position: relative;
+      padding: 1rem;
+    }
+
+    .main.with-sidebar {
+      margin-left: 250px;
+    }
+
+    /* Toggle button */
+    .toggle-button {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 100;
+    }
+
+    .toggle-button:hover {
+      background: #0056b3;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 4rem auto 1rem;
     }
 
     .drop-zone {
       border: 2px dashed #ccc;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 2rem;
-      cursor: pointer;
       background: #fff;
-      color: #555;
-      margin-bottom: 2rem;
-      width: 100%;
-      max-width: 800px;
+      color: #444;
       text-align: center;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      transition: background 0.3s, border-color 0.3s;
     }
 
     .drop-zone.dragover {
-      border-color: #007bff;
-      background: #e6f0ff;
+      border-color: #339af0;
+      background: #e7f5ff;
     }
 
     #chatBox {
-      margin-bottom: 1rem;
-      padding: 1rem;
-      width: 100%;
-      max-width: 800px;
       background: #fff;
       border-radius: 8px;
-      white-space: pre-wrap;
-      min-height: 200px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      padding: 1rem;
+      height: 50vh;
       overflow-y: auto;
-      max-height: 60vh;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
 
-    .message {
-      margin: 0.5rem 0;
-      line-height: 1.5;
+    .message-row {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      cursor: pointer;
     }
 
-    .user {
-      color: #333;
+    .message-row.user {
+      justify-content: flex-end;
     }
 
-    .ollama {
-      color: #007bff;
+    .message-bubble {
+      max-width: 70%;
+      padding: 0.75rem;
+      border-radius: 1rem;
+      line-height: 1.4;
+      position: relative;
+      word-wrap: break-word;
     }
 
-    #inputArea {
-      width: 100%;
-      max-width: 800px;
+    .user .message-bubble {
+      background: #d1e7dd;
+      color: #0c4128;
+      border-bottom-right-radius: 0;
+    }
+
+    .ollama .message-bubble {
+      background: #dbeafe;
+      color: #1e40af;
+      border-bottom-left-radius: 0;
+    }
+
+    .copy-tooltip {
+      font-size: 0.7rem;
+      text-align: center;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+
+    .input-area {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      margin-top: 1rem;
     }
 
     textarea {
       width: 100%;
-      border-radius: 4px;
-      padding: 0.5rem;
-      font-family: inherit;
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
       resize: vertical;
     }
 
     button {
       align-self: flex-end;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1.2rem;
       font-size: 1rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
     }
 
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    /* Responsive Sidebar Toggle */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        height: 100vh;
+        transform: translateX(-100%);
+        z-index: 999;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+    }
+    .prompt-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .prompt-list li {
+      padding: 0.5rem;
+      background: #e7effb;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 0.95rem;
+    }
+
+    .prompt-list li:hover {
+      background: #d0e4ff;
+    }
+
+    .think-block summary {
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+    <h2>📌 Prompt Templates</h2>
+    <ul id="promptList" class="prompt-list">
+      <li onclick="insertPrompt('提取中英文关键词，按重要性和与对话核心相关度降序排列，输出为如下格式(每个关键词中不能有空格，如有需要使用连字符-替代空格), 不需其他格式，严格遵守以下格式： #keyword1 #关键词1 #keyword2 #关键词2')">关键词提取</li>
+      <li onclick="insertPrompt('整理为markdown格式')">整理为markdown格式</li>
+      <li onclick="insertPrompt('Extract key points.')">Extract key points.</li>
+      <li onclick="insertPrompt('Suggest meeting actions.')">Suggest meeting actions.</li>
+    </ul>
+    </div>
 
-  <h1>🎙️ AutoNotes</h1>
-  <p>Drop an audio file (MP4, MP3, WAV, ...) to transcribe + summarize with Whisper + Ollama</p>
+    <!-- Main Area -->
+    <div class="main">
+      <button class="toggle-button" onclick="toggleSidebar()">☰ Prompt</button>
+      <div class="container">
+        <h1>🎙️ AutoNotes</h1>
+        <p>Drop an audio file (MP4, MP3, WAV...) to transcribe and summarize</p>
 
-  <div class="drop-zone" id="dropZone">
-    Drop your audio file here or click to select
-    <input type="file" id="fileInput" style="display: none;" accept="audio/*">
-  </div>
+        <div class="drop-zone" id="dropZone">
+          Drop your audio file here or click to select
+          <input type="file" id="fileInput" style="display: none;" accept="audio/*">
+        </div>
 
-  <div id="chatBox"></div>
+        <div id="chatBox"></div>
+        <p class="copy-tooltip">💡 Click on a message to copy it</p>
 
-  <div id="inputArea">
-    <h2>💬 Chat with Ollama</h2>
-    <textarea id="chatInput" placeholder="Ask to refine summary, translate, extract key points..." rows="3"></textarea>
-    <button onclick="sendMessage()">Send</button>
+        <div class="input-area">
+          <h2>💬 Chat with Ollama</h2>
+          <textarea id="chatInput" placeholder="Ask to refine summary, translate, extract key points..." rows="3"></textarea>
+          <button onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -111,23 +270,17 @@
     const chatBox = document.getElementById('chatBox');
 
     dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => {
+    dropZone.addEventListener('dragover', e => {
       e.preventDefault();
       dropZone.classList.add('dragover');
     });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
       e.preventDefault();
       dropZone.classList.remove('dragover');
       const file = e.dataTransfer.files[0];
       if (file) uploadFile(file);
     });
-
     fileInput.addEventListener('change', () => {
       const file = fileInput.files[0];
       if (file) uploadFile(file);
@@ -137,24 +290,59 @@
       const formData = new FormData();
       formData.append("file", file);
 
-      addUserMessage("🎧 Uploaded audio. Transcribing and summarizing...");
+      addMessage("🎧 Uploaded audio. Transcribing and summarizing...", "user");
 
-      const response = await fetch("/summarize", {
-        method: "POST",
-        body: formData,
-      });
-
+      const response = await fetch("/summarize", { method: "POST", body: formData });
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      addOllamaMessage(""); // placeholder
-      let current = chatBox.lastElementChild;
+      let buffer = "";
+      let isStreamingSummary = false;
+      let summaryMessageElement = null;
+      let rawSummary = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        current.textContent += decoder.decode(value, { stream: true });
-        scrollToBottom();
+
+        buffer += decoder.decode(value, { stream: true });
+
+        while (true) {
+          const newlineIndex = buffer.indexOf("\n");
+          if (newlineIndex < 0) break;
+
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (!line) continue;
+
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.type === "transcript") {
+              addMessage("📄 Transcript:\n" + parsed.content, "ollama");
+            } else if (parsed.type === "summary_start") {
+              isStreamingSummary = true;
+              summaryMessageElement = addMessage("", "ollama");
+            }
+          } catch {
+            // This is not JSON — assume it's a chunk of the summary
+          }
+        }
+
+        // Handle summary stream content
+        if (isStreamingSummary && summaryMessageElement) {
+          rawSummary += buffer;
+          const bubble = summaryMessageElement.querySelector(".message-bubble");
+          bubble.textContent = "🤖: " + rawSummary;
+          buffer = "";
+          scrollToBottom();
+        }
+      }
+
+      // Final formatting of the summary message (after complete stream)
+      if (summaryMessageElement) {
+        const bubble = summaryMessageElement.querySelector(".message-bubble");
+        bubble.innerHTML = formatMessageContent("🤖: " + rawSummary);
       }
 
       scrollToBottom();
@@ -164,9 +352,9 @@
       const input = document.getElementById("chatInput");
       const message = input.value.trim();
       if (!message) return;
-
-      addUserMessage(message);
       input.value = "";
+
+      addMessage(message, "user");
 
       const response = await fetch("/chat", {
         method: "POST",
@@ -177,36 +365,85 @@
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      addOllamaMessage("");
-      let current = chatBox.lastElementChild;
+      const msgElement = addMessage("", "ollama");
+      let raw = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        current.textContent += decoder.decode(value, { stream: true });
+        raw += decoder.decode(value, { stream: true });
+
+        // Show plain text while streaming
+        msgElement.querySelector(".message-bubble").textContent = "🤖: " + raw;
         scrollToBottom();
       }
 
-      scrollToBottom();
+      // Final formatting to apply <think> handling
+      const bubble = msgElement.querySelector(".message-bubble");
+      bubble.innerHTML = formatMessageContent("🤖: " + raw);
     }
 
-    function addUserMessage(msg) {
-      const div = document.createElement("div");
-      div.className = "message user";
-      div.textContent = "🧑‍💻: " + msg;
-      chatBox.appendChild(div);
+    function addMessage(text, sender) {
+      const row = document.createElement("div");
+      row.className = "message-row " + sender;
+
+      const bubble = document.createElement("div");
+      bubble.className = "message-bubble";
+      bubble.innerHTML = formatMessageContent((sender === "user" ? "🧑‍💻: " : "🤖: ") + text);
+
+      row.appendChild(bubble);
+      row.onclick = () => {
+        const cloned = bubble.cloneNode(true);
+        cloned.querySelectorAll(".think-block").forEach(el => el.remove());
+
+        let text = cloned.textContent.trim();
+        // Remove bot or user emoji prefix (e.g., "🤖: " or "🧑‍💻: ")
+        text = text.replace(/^🤖:\s*|^🧑‍💻:\s*/i, '');
+
+        navigator.clipboard.writeText(text);
+        bubble.style.opacity = 0.6;
+        setTimeout(() => bubble.style.opacity = 1, 500);
+      };
+
+      chatBox.appendChild(row);
+      return row;
     }
 
-    function addOllamaMessage(msg) {
-      const div = document.createElement("div");
-      div.className = "message ollama";
-      div.textContent = "🤖: " + (msg || "");
-      chatBox.appendChild(div);
+    function formatMessageContent(raw) {
+      return raw.replace(/<think>([\s\S]*?)<\/think>/g, (_, content) => {
+        const safe = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        return `
+          <span class="think-block">
+            <details>
+              <summary style="cursor: pointer; font-style: italic; color: #888;">🤖 thinking... (click to expand)</summary>
+              <div style="white-space: pre-wrap; font-style: italic; color: #666; margin-top: 0.5em;">${safe}</div>
+            </details>
+          </span>
+        `;
+      });
     }
 
     function scrollToBottom() {
       chatBox.scrollTop = chatBox.scrollHeight;
     }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const main = document.querySelector('.main');
+      const button = document.querySelector('.toggle-button');
+
+      sidebar.classList.toggle('open');
+      main.classList.toggle('with-sidebar');
+
+      button.textContent = sidebar.classList.contains('open') ? '✖ Close' : '☰ Prompt';
+    }
+
+    function insertPrompt(text) {
+      const input = document.getElementById("chatInput");
+      input.value = text;
+      input.focus();
+    }
+
   </script>
 </body>
 </html>

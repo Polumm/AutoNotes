@@ -19,6 +19,7 @@ def chat():
     chat_history.append({"role": "user", "content": user_message})
 
     def generate():
+        response_text = ""
         payload = {
             "model": current_app.config["LLM_MODEL"],
             "messages": chat_history,
@@ -33,6 +34,10 @@ def chat():
                     data = json.loads(line.decode("utf-8"))
                     content = data.get("message", {}).get("content")
                     if content:
+                        response_text += content
                         yield content
+
+        # Append assistant's full reply to history
+        chat_history.append({"role": "assistant", "content": response_text})
 
     return Response(stream_with_context(generate()), mimetype="text/plain")

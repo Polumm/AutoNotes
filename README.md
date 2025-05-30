@@ -1,109 +1,120 @@
-# AutoNotes: Transcribe, Summarize & Chat with Your Own LLM
+# 🎙️ AutoNotes
 
-**AutoNotes** is a privacy-first, local-first web app that helps you quickly extract insights from audio or video files using [Whisper](https://github.com/openai/whisper) for transcription and [Ollama](https://ollama.com) for large language model (LLM) summarization and refinement.
-
-Upload a file, get an instant transcript and summary, and continue chatting with the LLM to refine, translate, or extract key points — all running locally to protect your data.
+**AutoNotes** is a powerful web-based transcription and summarization tool that combines the capabilities of [Whisper](https://github.com/openai/whisper), [Ollama](https://ollama.com/), and [yt-dlp](https://github.com/yt-dlp/yt-dlp). It allows users to upload or download audio (e.g., from YouTube), transcribe it, summarize its content, and chat with a language model—all from an intuitive and interactive UI.
 
 ---
 
 ## ✨ Features
 
-- 🔒 **Privacy-First**: Everything runs locally using Whisper and Ollama.
-- 🧠 **Smart Summaries**: Automatically generate summaries from audio/video content.
-- 💬 **Conversational Refinement**: Ask follow-up questions or refine summaries via chat.
-- 🖥️ **Web UI**: Simple drag-and-drop interface with streaming LLM replies.
-- ⚡ **Fast Transcription**: Use Whisper with GPU acceleration (in `flask run`) or CPU (via Docker).
+- 🔉 Audio upload with drag-and-drop UI
+- 🧠 Whisper-based transcription
+- ✍️ Ollama-powered summarization and chatbot
+- 📥 YouTube audio downloader via `yt-dlp`
+- 📋 Clipboard-aware auto-fill for YouTube links
+- 📂 Optional file storage to persist downloaded files
+- 💬 Prompt templates with click-to-insert and editable chat
+- 🔒 Click-to-copy that excludes AI's inner `<think>` thoughts
+![App Screenshot on deepseek model](app/static/2025_05_30_222131.jpg)
+---
 
-![App Screenshot on deepseek model](app/static/2025_03_25_224416.jpg)
+## 📦 Requirements
+
+- Python 3.8+
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) installed and available in PATH
+- A running Ollama instance
+- Whisper model (e.g., `medium`) will be downloaded on first run
+
+### 🔧 Python dependencies
+Install using `requirements.txt`:
+
+```bash
+pip install -r requirements.txt
+````
 
 ---
 
-## 🛠️ Setup Instructions
+## 🚀 Getting Started
 
-### 1. Install Ollama
-
-Follow the [Ollama installation guide](https://ollama.com/download) for your OS.
-
-Then download a compatible LLM:
+### 1. Clone the repository
 
 ```bash
-ollama pull deepseek-r1:14b
+git clone https://github.com/your-username/AutoNotes.git
+cd AutoNotes
 ```
 
-> You can use another model if you prefer — just update `LLM_MODEL` in `config.py`.
-
----
-
-## 🧪 Development Mode (Whisper on GPU)
-
-Requires Python 3.10+ and GPU support.
+### 2. Set up the virtual environment
 
 ```bash
-# Clone and setup
-git clone https://github.com/your-username/autonotes
-cd autonotes
-
-# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate
+```
 
-# Install dependencies
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
-# Run the Flask app
+### 4. Run the app
+
+```bash
 flask run
 ```
 
-Visit: [http://localhost:5000](http://localhost:5000)
+Then open [http://localhost:5000](http://localhost:5000) in your browser.
 
 ---
 
-## 🐳 Docker Mode (CPU only)
+## ⚙️ Environment Configuration
 
-> This mode uses Whisper with CPU (slower) but simplifies setup via Docker.
+You can override default settings with environment variables:
 
-### 1. Build & Run
+```env
+OLLAMA_API=http://localhost:11434/api/chat
+LLM_MODEL=deepseek-r1:14b
+WHISPER_MODEL_DIR=./models/whisper
+```
+
+---
+
+## 🔁 Running from Anywhere
+
+To run the app with a single command like `autonote`, follow these steps:
+
+1. Create an executable script called `autonote`:
+
+   ```bash
+   touch autonote
+   chmod +x autonote
+   ```
+
+2. Paste the following into the script:
+
+   ```bash
+   #!/bin/bash
+   cd /your/path/to/AutoNotes
+   source .venv/bin/activate
+   flask run
+   ```
+
+3. Move it to a directory in your `$PATH`:
+
+   ```bash
+   sudo mv autonote /usr/local/bin/autonote
+   ```
+
+Now run:
 
 ```bash
-docker-compose up --build
-```
-
-Then open: [http://localhost:5000](http://localhost:5000)
-
----
-
-## 📁 Project Structure
-
-```
-autonotes/
-├── app/
-│   ├── __init__.py
-│   ├── routes/
-│   │   ├── summarize.py
-│   │   └── chat.py
-│   ├── templates/
-│   │   └── index.html
-│   └── static/         # (Optional for future assets)
-├── config.py
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
+autonote
 ```
 
 ---
 
-## 🔧 Configuration
+## 📁 File Storage Behavior
 
-Edit `config.py` or override via environment variables:
-
-```python
-OLLAMA_API = os.getenv("OLLAMA_API", "http://localhost:11434/api/chat")
-LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-r1:14b")
-WHISPER_MODEL_DIR = os.getenv("WHISPER_MODEL_DIR", "./models/whisper")
-```
-
----
+* Downloaded audio files are saved to `/tmp` by default and cleaned up after summarization.
+* If the **Store** button is clicked, the file is moved to `./storage/` and retained.
 
 ## 💡 Use Cases
 

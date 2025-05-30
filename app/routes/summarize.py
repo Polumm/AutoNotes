@@ -8,7 +8,6 @@ from flask import (
     current_app,
     stream_with_context,
 )
-from app import whisper_model
 
 summarize_bp = Blueprint("summarize", __name__)
 chat_history = []
@@ -20,11 +19,13 @@ def summarize_audio():
     temp_path = "/tmp/" + file.filename
     file.save(temp_path)
 
-    result = whisper_model.transcribe(temp_path)
+    result = current_app.whisper_model.transcribe(temp_path)
     transcript = result["text"]
     os.remove(temp_path)
 
-    summary_prompt = f"Please summarize the following transcript:\n\n{transcript}"
+    summary_prompt = (
+        f"Please summarize the following transcript:\n\n{transcript}"
+    )
     messages = [{"role": "user", "content": summary_prompt}]
     payload = {
         "model": current_app.config["LLM_MODEL"],
@@ -34,7 +35,13 @@ def summarize_audio():
 
     def generate_summary():
         # Step 1: Send transcript first
-        yield json.dumps({"type": "transcript", "content": transcript}, ensure_ascii=False) + "\n"
+        yield (
+            json.dumps(
+                {"type": "transcript", "content": transcript},
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
 
         # Step 2: Start summary stream
         yield json.dumps({"type": "summary_start"}) + "\n"
@@ -57,4 +64,6 @@ def summarize_audio():
         chat_history.append({"role": "user", "content": summary_prompt})
         chat_history.append({"role": "assistant", "content": summary_content})
 
-    return Response(stream_with_context(generate_summary()), mimetype="text/plain")
+    return Response(
+        stream_with_context(generate_summary()), mimetype="text/plain"
+    )

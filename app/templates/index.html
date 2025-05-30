@@ -233,9 +233,9 @@
     <div class="sidebar" id="sidebar">
     <h2>📌 Prompt Templates</h2>
     <ul id="promptList" class="prompt-list">
-      <li onclick="insertPrompt('提取中英文关键词，按重要性和与对话核心相关度降序排列，输出为如下格式(每个关键词中不能有空格，如有需要使用连字符-替代空格), 不需其他格式，严格遵守以下格式： #keyword1 #关键词1 #keyword2 #关键词2')">关键词提取</li>
-      <li onclick="insertPrompt('整理为markdown格式')">整理为markdown格式</li>
-      <li onclick="insertPrompt('Extract key points.')">Extract key points.</li>
+      <li onclick="insertPrompt('提取中英文关键词，按重要性和与对话核心相关度降序排列，输出为如下格式(每个关键词中不能有空格，如有需要使用连字符-替代空格), 不需其他格式，严格遵守以下格式： #keyword1 #关键词1 #keyword2 #关键词2')">Extract Chinese and English keywords</li>
+      <li onclick="insertPrompt('Please summarize the transcript in markdown format')">Summarize in markdown</li>
+      <li onclick="insertPrompt('Please organize and summarize the important metaphors in the Transcript that are related to the core ideas, excerpt the English and Chinese translations, and organize them into a markdown format')">Extract key metaphors</li>
       <li onclick="insertPrompt('Suggest meeting actions.')">Suggest meeting actions.</li>
     </ul>
     </div>
@@ -246,6 +246,15 @@
       <div class="container">
         <h1>🎙️ AutoNotes</h1>
         <p>Drop an audio file (MP4, MP3, WAV...) to transcribe and summarize</p>
+        <div style="margin-bottom: 1rem;">
+          <h2>📥 Download YouTube Audio</h2>
+          <input type="text" id="youtubeUrl" placeholder="Paste YouTube link here..." style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #ccc;" />
+          <label><input type="checkbox" id="storeFile"> 📂 Keep file in storage</label>
+          <div style="margin-top: 0.5rem;">
+            <button onclick="downloadFromYouTube()">Download & Summarize</button>
+            <button onclick="pasteClipboardUrl()">📋 Paste from Clipboard</button>
+          </div>
+        </div>
 
         <div class="drop-zone" id="dropZone">
           Drop your audio file here or click to select
@@ -444,6 +453,78 @@
       input.focus();
     }
 
+      async function pasteClipboardUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const input = document.getElementById("youtubeUrl");
+      input.value = text;
+    } catch (err) {
+      alert("Failed to read clipboard: " + err.message);
+    }
+  }
+
+  async function downloadFromYouTube() {
+    const url = document.getElementById("youtubeUrl").value.trim();
+    const store = document.getElementById("storeFile").checked;
+
+    if (!url) {
+      alert("Please enter a YouTube URL.");
+      return;
+    }
+
+    addMessage(`📥 Downloading and summarizing from: ${url}`, "user");
+
+    const response = await fetch("/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, store })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    let buffer = "";
+    let isStreamingSummary = false;
+    let summaryMessageElement = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      while (true) {
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex < 0) break;
+
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+
+        if (!line) continue;
+
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.type === "transcript") {
+            addMessage("📄 Transcript:\n" + parsed.content, "ollama");
+          } else if (parsed.type === "summary_start") {
+            isStreamingSummary = true;
+            summaryMessageElement = addMessage("", "ollama");
+          }
+        } catch {
+          // Ignore parsing errors from streamed summary
+        }
+      }
+
+      if (isStreamingSummary && summaryMessageElement) {
+        const bubble = summaryMessageElement.querySelector(".message-bubble");
+        bubble.innerHTML = formatMessageContent(bubble.textContent + buffer);
+        buffer = "";
+        scrollToBottom();
+      }
+    }
+
+    scrollToBottom();
+  }
   </script>
 </body>
 </html>
